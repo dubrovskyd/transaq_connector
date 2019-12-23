@@ -4,7 +4,7 @@ import platform, os
 from urllib.request import urlopen
 from warnings import warn
 
-assert(platform.os == 'Windows')
+assert(platform.system() == 'Windows')
 
 url = "http://www.finam.ru/files/"
 dll_file = 'txmlconnector64.dll' if platform.machine() == 'AMD64' else 'txmlconnector.dll'
