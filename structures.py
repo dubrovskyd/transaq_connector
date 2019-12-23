@@ -54,7 +54,7 @@ class NullableDateTimeMapper(DateTimeMapper):
     def to_python(self, node):
         if node is None:
             return None
-        if isinstance(node, basestring):
+        if isinstance(node, (str, bytes)):
             rep = node
         else:
             rep = self.XPATH(node)
@@ -76,10 +76,10 @@ class MyXmlObject(XmlObject):
     def __repr__(self):
         cls = self.__class__
         fields = []
-        for (name, val) in filter(lambda (name, val): isinstance(val, Field), inspect.getmembers(cls)):
+        for (name, val) in filter(lambda name, val: isinstance(val, Field), inspect.getmembers(cls)):
             val = self.__getattribute__(name)
             if val:
-                fields.append("%s=%s" % (name, unicode(val)))
+                fields.append("%s=%s" % (name, str(val)))
         return "%s(%s)" % (cls.__name__, ', '.join(fields))
 
 
@@ -319,9 +319,9 @@ class SecInfo(Entity):
     # Номинал облигации или акции, руб
     facevalue = FloatField('facevalue')
     # Тип опциона Call(C)/Put(P)
-    put_call = StringField('put_call', choices=('C','P'))
+    put_call = StringField('put_call', choices=('C', 'P'))
     # Маржинальный(M)/премия(P)
-    opt_type = StringField('opt_type', choices=('M','P'))
+    opt_type = StringField('opt_type', choices=('M', 'P'))
     # Количество базового актива (FORTS)
     lot_volume = IntegerField('lot_volume')
 
@@ -1241,7 +1241,7 @@ class UnitedPortfolio(MyXmlObject):
         init_req = FloatField('init_req')
         # Минимальная маржа
         maint_req = FloatField('maint_req')
-        
+
         class _Security(MyXmlObject):
             # Id инструмента
             secid = IntegerField('@secid')

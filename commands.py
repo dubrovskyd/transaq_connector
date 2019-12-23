@@ -67,7 +67,7 @@ def __get_message(ptr):
     # Достать сообщение из нативной памяти.
     msg = ctypes.string_at(ptr)
     txml_dll.FreeMemory(ptr)
-    return unicode(msg, 'utf8')
+    return str(msg, 'utf8')
 
 
 def __elem(tag, text):

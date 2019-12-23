@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 from distutils.core import setup
 import platform, os
-from urllib2 import urlopen
+from urllib.request import urlopen
 from warnings import warn
 
-assert(platform.os == 'Windows')
+assert(platform.system() == 'Windows')
 
 url = "http://www.finam.ru/files/"
 dll_file = 'txmlconnector64.dll' if platform.machine() == 'AMD64' else 'txmlconnector.dll'
