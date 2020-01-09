@@ -30,6 +30,10 @@ encoding = sys.stdout.encoding
 
 
 def reload_dll(dll_path):
+    """
+    Функция, загружающая dll с иным путем, чем site-packages. Нужно использовать, если возникают проблемы с правами доступа
+    :param dll_path: Путь к .dll файлу
+    """
     global  txml_dll
     txml_dll = ctypes.WinDLL(dll_path)
 
