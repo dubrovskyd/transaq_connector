@@ -29,6 +29,15 @@ connected = False
 encoding = sys.stdout.encoding
 
 
+def reload_dll(dll_path):
+    """
+    Функция, загружающая dll с иным путем, чем site-packages. Нужно использовать, если возникают проблемы с правами доступа
+    :param dll_path: Путь к .dll файлу
+    """
+    global  txml_dll
+    txml_dll = ctypes.WinDLL(dll_path)
+
+
 @callback_func
 def callback(msg):
     """
@@ -46,7 +55,7 @@ def callback(msg):
     elif isinstance(obj, ServerStatus):
         log.info(u"Соединен с серваком: %s" % obj.connected)
         if obj.connected == 'error':
-            log.warn(u"Ёпта, ошибка соединения: %s" % obj.text)
+            log.warn(u"Ошибка соединения: %s" % obj.text)
         log.debug(obj)
     else:
         log.info(u"Получил объект типа %s" % str(type(obj)))
@@ -99,7 +108,7 @@ def initialize(logdir, loglevel, msg_handler):
     global_handler = msg_handler
     if not os.path.exists(logdir):
         os.mkdir(logdir)
-    err = txml_dll.Initialize(logdir + "\0", loglevel)
+    err = txml_dll.Initialize(logdir, loglevel)
     if err != 0:
         msg = __get_message(err)
         raise TransaqException(Error.parse(msg).text.encode(encoding))

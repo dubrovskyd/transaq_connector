@@ -7,3 +7,7 @@ pair/
 build/
 docs/build/
 txmlconnector*.dll
+C/
+L/
+*Logs/
+test_dll.py
