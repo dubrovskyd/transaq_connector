@@ -55,7 +55,7 @@ def callback(msg):
     elif isinstance(obj, ServerStatus):
         log.info(u"Соединен с серваком: %s" % obj.connected)
         if obj.connected == 'error':
-            log.warn(u"Ёпта, ошибка соединения: %s" % obj.text)
+            log.warn(u"Ошибка соединения: %s" % obj.text)
         log.debug(obj)
     else:
         log.info(u"Получил объект типа %s" % str(type(obj)))
