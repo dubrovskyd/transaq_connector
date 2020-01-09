@@ -13,7 +13,10 @@
 import ctypes, logging
 import platform, os, sys
 import lxml.etree as et
-from structures import *
+try:
+    from structures import *
+except ImportError:
+    from .structures import *
 log = logging.getLogger("transaq.connector")
 
 callback_func = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_char_p)
