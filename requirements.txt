@@ -1,2 +1,5 @@
+setuptools
+wheel
 eulxml >= 1.0.1
 lxml >= 3.4.4
+pythonnet
