@@ -14,7 +14,7 @@ log = logging.getLogger("transaq.connector")
 # Формат дат/времени используемый Транзаком
 timeformat = "%d.%m.%Y %H:%M:%S"
 # Список классов, ленивая инициализация при парсинге
-_my_classes = []
+_my_classes = None
 
 
 def parse(xml):
@@ -30,16 +30,14 @@ def parse(xml):
     # Корневой тег достанем
     root = parseString(xml).tag
     # Пройдемся по всем классам модуля и найдем подходящий
-    if not len(_my_classes):
-        _my_classes = filter(lambda o: inspect.isclass(o) and issubclass(o, MyXmlObject),
-                             sys.modules[__name__].__dict__.values())
+    if _my_classes is None:
+        classes_filter = lambda o: inspect.isclass(o) and issubclass(o, MyXmlObject)
+        _my_classes = inspect.getmembers(sys.modules[__name__], classes_filter)
     for cls in _my_classes:
-        if root == cls.ROOT_NAME:
-            return cls.parse(xml)
-    # Лабуда какая-то пришла
-    log.error(u"Неподдерживаемый xml, не распарсился нихрена! Типа %s" % xml[:10])
-    log.debug(xml)
-    return None
+        if root == cls[1].ROOT_NAME:
+            return cls[1].parse(xml)
+    log.error(u"XML type is not supported, root tag: %s" % root)
+    return xml
 
 
 ## Вспомогательные классы

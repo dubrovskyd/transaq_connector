@@ -27,7 +27,7 @@ if __file__ is not None:
     if path != "":
         path += os.sep
 
-txml_dll = ctypes.WinDLL(path + ("txmlconnector64.dll" if platform.machine() == 'AMD64' else 'txmlconnector.dll') )
+txml_dll = ctypes.WinDLL(path + ("txmlconnector64.dll" if platform.machine() == 'AMD64' else 'txmlconnector.dll'))
 connected = False
 encoding = sys.stdout.encoding
 
@@ -78,7 +78,7 @@ class TransaqException(Exception):
 def __get_message(ptr):
     # Достать сообщение из нативной памяти.
     msg = ctypes.string_at(ptr)
-    txml_dll.FreeMemory(ptr)
+    # txml_dll.FreeMemory(ptr)
     return str(msg, 'utf8')
 
 
@@ -91,6 +91,7 @@ def __elem(tag, text):
 
 def __send_command(cmd):
     # Отправить команду и проверить на ошибки.
+    txml_dll.SendCommand.restype = ctypes.c_char_p
     msg = __get_message(txml_dll.SendCommand(cmd))
     err = Error.parse(msg)
     if err.text:
