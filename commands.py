@@ -166,7 +166,7 @@ def __subscribe_helper_ids(secids, cmd, mode):
     root = et.Element("command", {"id": cmd})
     trades = et.Element(mode)
     for id in secids:
-        trades.append(__elem("secid", id))
+        trades.append(__elem("secid", str(id)))
     root.append(trades)
     return __send_command(et.tostring(root, encoding="utf-8"))
 
