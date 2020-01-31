@@ -461,7 +461,7 @@ class Trade(Entity):
     # Время сделки
     time = DateTimeField('time', timeformat)
     # Цена сделки
-    price = FloatField('price')
+    price = StringField('price')
     # Объём в лотах
     quantity = IntegerField('quantity')
     # Покупка (B) / Продажа (S)
