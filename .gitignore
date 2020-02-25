@@ -6,7 +6,6 @@ Logs/
 pair/
 build/
 docs/build/
-txmlconnector*.dll
 C/
 L/
 *Logs/
