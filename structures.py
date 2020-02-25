@@ -12,7 +12,7 @@ import sys, inspect, logging
 
 log = logging.getLogger("transaq.connector")
 # Формат дат/времени используемый Транзаком
-timeformat = "%d.%m.%Y %H:%M:%S"
+timeformat = "%d.%m.%Y %H:%M:%S.%f"
 # Список классов, ленивая инициализация при парсинге
 _my_classes = None
 

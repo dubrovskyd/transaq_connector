@@ -142,6 +142,7 @@ def connect(login, password, server, min_delay=100):
     root.append(__elem("host", host))
     root.append(__elem("port", port))
     root.append(__elem("rqdelay", str(min_delay)))
+    root.append(__elem("milliseconds", "true"))
     return __send_command(et.tostring(root, encoding="utf-8"))
 
 
