@@ -9,4 +9,5 @@ docs/build/
 C/
 L/
 *Logs/
-test_dll.py
+test_dll.
+config.ini
