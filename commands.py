@@ -53,15 +53,17 @@ def callback(msg):
     """
     obj = parse(msg.decode('utf8'))
     if isinstance(obj, Error):
-        log.error(u"Траблы: %s" % obj.text)
+        log.error(u"Error: %s" % obj.text)
         raise TransaqException(obj.text.encode(encoding))
     elif isinstance(obj, ServerStatus):
-        log.info(u"Соединен с серваком: %s" % obj.connected)
+        log.info(u"Connected to server: %s" % obj.connected)
         if obj.connected == 'error':
-            log.warn(u"Ошибка соединения: %s" % obj.text)
+            log.warn(u"Connection error: %s" % obj.text)
         log.debug(obj)
+        # REM
+        print(obj)
     else:
-        log.info(u"Получил объект типа %s" % str(type(obj)))
+        # log.info(u"Received message of type %s" % str(type(obj)))
         log.debug(obj)
     if global_handler:
         global_handler(obj)

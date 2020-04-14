@@ -198,12 +198,22 @@ class ClientAccount(Entity):
     # счет FORTS клиента
     forts_acc = StringField('forts_acc')
 
+class Union(Entity):
+    """
+    Юнионы, находящиеся в управлении клиента
+    """
+    ROOT_NAME = 'union'
+    # Идентификатор
+    id = StringField('@id')
 
 class Market(Entity):
     """
     Названия рынков: ММВБ, ФОРТС...
     """
     ROOT_NAME = 'market'
+    # Идентификатор рынка
+    id = StringField('@id')
+
     name = StringField('text()')
 
 
@@ -260,6 +270,10 @@ class Security(Entity):
     point_cost = FloatField('point_cost')
     # Имя таймзоны инструмента
     timezone = StringField('sec_tz')
+    # 
+    currency = StringField('currency')
+    # 
+    ticker = StringField('ticker')
     # Флаги фичей
     credit_allowed = SimpleBooleanField('opmask/@usecredit', 'yes', 'no')
     bymarket_allowed = SimpleBooleanField('opmask/@bymarket', 'yes', 'no')
