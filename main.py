@@ -42,9 +42,15 @@ subscribed_ids = {}
 milliseconds_by_ids = {}
 config = Config()
 connector_ready = False
-logger = logging.getLogger("AtsdTransaqSender")
 trade_cmd_file = None
 trade_msg_file = None
+
+if not os.path.exists(config.log_path):
+    os.mkdir(config.log_path)
+
+log = logging.getLogger("main")
+log_fh = logging.FileHandler(config.log_path + '/main.log')
+log.addHandler(log_fh)
 
 trade_cmd_header = 'trade_num,board,sec_code,datetime,quantity,price,side'
 trade_cmd__dir = os.path.dirname(config.trade_cmd_path)
@@ -68,6 +74,8 @@ else:
 if os.path.getsize(config.trade_msg_path) == 0:
     trade_msg_file.write(trade_msg_header)
 
+log.info('logging to main: %s msg: %s cmd: %s' % (config.log_path + '/main.log', config.trade_msg_path, config.trade_cmd_path))
+
 msk_timezone = datetime.timezone(datetime.timedelta(hours=3))
 trade_start_time = datetime.time( 9,  0,  0, tzinfo=msk_timezone)
 trade_end_time   = datetime.time(23, 59,  0, tzinfo=msk_timezone)
@@ -85,19 +93,19 @@ def process_trade(trade):
     exchange = "transaq"
     trade_datetime = str(trade.time) + " " + subscribed_ids[trade.secid]
     trade_time = int(to_milliseconds(trade_datetime))
-    msg_cmd = "%s,%s,%s,%s,%s,%s,%s" % (trade.id, trade.board, trade.seccode, trade_time, trade.quantity, trade.price, trade.buysell)
+    msg_cmd = "%s,%s,%s,%s,%s,%s,%s\n" % (trade.id, trade.board, trade.seccode, trade_time, trade.quantity, trade.price, trade.buysell)
     trade_msg_file.write(msg_cmd)
     trade_msg_file.flush()
     net_cmd = "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % (trade.id, trade_time, 0, trade.board, trade.seccode, exchange, trade.buysell, trade.quantity, trade.price, "")
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_socket.sendto(bytes(net_cmd, encoding='utf-8'), (config.atsd_host, config.trades_port))
-    trade_cmd_file.write(net_cmd)
+    trade_cmd_file.write(net_cmd + '\n')
     trade_cmd_file.flush()
 
 def send_command(command):
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_socket.sendto(bytes(command, encoding='utf-8'), (config.atsd_host, config.cmd_port))
-    logger.info(command)
+    log.info(command)
 
 def to_entity_command(security):
     if not isinstance(security, Security):
@@ -112,7 +120,7 @@ def to_entity_command(security):
     lot_size = security.lotsize
     min_price_step = security.minstep
     scale = security.decimals
-    command = "entity e:%s l:%s t:code=%s t:short_name=\"%s\" t:name=\"%s\" t:class_code=%s t:lot_size=%s t:min_price_step=%s t:scale=%s" \
+    command = "entity e:%s l:\"%s\" t:code=%s t:short_name=\"%s\" t:name=\"%s\" t:class_code=%s t:lot_size=%s t:min_price_step=%s t:scale=%s" \
               " t:market=%s t:timezone=\"%s\"" % (entity_name, label, code, short_name, name, class_code, lot_size, min_price_step, scale,
                                                  security.market, security.timezone)
     if security.currency is not None:
@@ -127,6 +135,7 @@ def to_entity_command(security):
 
 def callback(msg):
     if isinstance(msg, SecurityPacket):
+        log.info('security packet: %s' % (len(msg.items)))
         for security in msg.items:
             sec_full_name = security.board + ':' + security.seccode
             match_sec = security.seccode in config.include_securities
@@ -134,13 +143,13 @@ def callback(msg):
             if match_sec == False and security.secid not in subscribed_ids.keys() and security.seccode not in config.exclude_securities:
                 for sc in gen:
                     match_sec = match_sec or fnmatch.fnmatch(sec_full_name, sc)
-            # print('security seccode: %s board: %s market: %s mat: %s' % (security.seccode, security.board, security.market, match_sec) )
+            # log.info('security seccode: %s board: %s market: %s mat: %s' % (security.seccode, security.board, security.market, match_sec) )
             if match_sec:
                 subscribed_ids[security.secid] = security.timezone
                 milliseconds_by_ids[security.secid] = (0, 0)
                 ecmd = to_entity_command(security)
                 send_command(ecmd)
-                print("Subscribed to seccode: %s board: %s market: %s with tz %s.\n\t%s" % (security.seccode, security.board, security.market, security.timezone, ecmd))
+                log.info("Subscribed to seccode: %s board: %s market: %s with tz %s.\n\t%s" % (security.seccode, security.board, security.market, security.timezone, ecmd))
     elif isinstance(msg, TradePacket):
         for trade in msg.items:
             process_trade(trade)
@@ -157,24 +166,24 @@ def callback(msg):
             raise TransaqException(error)
     elif isinstance(msg, SecInfoUpdate) or isinstance(msg, SecurityPitPacket) or isinstance(msg, CandleKindPacket):
         if 1 > 2:
-            print('msg %s' % str(type(msg)))  
+            log.info('msg %s' % str(type(msg)))  
     elif isinstance(msg, ClientAccount):
-        print('ClientAccount active: %s type: %s currency: %s market: %s' % (msg.active, msg.type, msg.currency, msg.market) )
+        log.info('ClientAccount active: %s type: %s currency: %s market: %s' % (msg.active, msg.type, msg.currency, msg.market) )
     elif isinstance(msg, CreditAbility):
-        print('CreditAbility overnight: %s intraday: %s' % (msg.overnight, msg.intraday) )
+        log.info('CreditAbility overnight: %s intraday: %s' % (msg.overnight, msg.intraday) )
     elif isinstance(msg, NewsHeader):
-        print('NewsHeader title: %s' % (msg.title) )
+        log.info('NewsHeader title: %s' % (msg.title) )
     elif isinstance(msg, MarketPacket):
         for itm in msg.items:
-            print('Market id: %s name: %s' % (itm.id, itm.name) )
+            log.info('Market id: %s name: %s' % (itm.id, itm.name) )
     elif isinstance(msg, BoardPacket):
         for itm in msg.items:
-            print('Board id: %s name: %s market: %s type: %s' % (itm.id, itm.name, itm.market, itm.type) )
+            log.info('Board id: %s name: %s market: %s type: %s' % (itm.id, itm.name, itm.market, itm.type) )
     elif isinstance(msg, TextMessagePacket):
         for itm in msg.items:
-            print('Test Message: %s' % itm.text)
+            log.info('Test Message: %s' % itm.text)
     else:
-        print('def %s' % str(type(msg)))
+        log.info('def %s' % str(type(msg)))
 
 def listen_trades():
     try:
@@ -184,18 +193,25 @@ def listen_trades():
         max_connect_seconds = 60 * 5
         connect_seconds = 0
         while not connector_ready:
+            log.info('disconnected. wait')
             time.sleep(3)
             connect_seconds += 3
             if connect_seconds >= max_connect_seconds:
                 return
+        log.info('connected. wait')
         time.sleep(3)
+        log.info('connected. ok')
+        # use another criteria for subscribing
+        log.info('subscribing to %s securities' % (len(subscribed_ids.keys())))
+        subscribe_ids(subscribed_ids.keys())
         while True:
             time.sleep(3)
             if not connector_ready:
+                log.error('disconnected. ok')
                 prepare_message_command("Transaq connector disconnected", TRANSAQ_INFO)
                 return
     except TransaqException as e:
-        logger.error(e)
+        log.error(e)
         send_command(prepare_message_command(str(e), TRANSAQ_ERROR))
         return
     finally:
