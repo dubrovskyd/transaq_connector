@@ -118,7 +118,7 @@ def to_entity_command(security):
     name = security.name
     class_code = security.board
     lot_size = security.lotsize
-    min_price_step = security.minstep
+    min_price_step = ('%0.10f' % security.minstep).rstrip('0').rstrip('.')
     scale = security.decimals
     command = "entity e:%s l:\"%s\" t:code=%s t:short_name=\"%s\" t:name=\"%s\" t:class_code=%s t:lot_size=%s t:min_price_step=%s t:scale=%s" \
               " t:market=%s t:timezone=\"%s\"" % (entity_name, label, code, short_name, name, class_code, lot_size, min_price_step, scale,
@@ -140,6 +140,7 @@ def callback(msg):
     elif isinstance(msg, SecurityPacket):
         log.info('security packet: %s' % (len(msg.items)))
         for security in msg.items:
+            log.info('security id: %s code: %s board: %s market: %s cur: %s sectype: %s name: %s' % (security.secid, security.seccode, security.board, security.market, str(security.currency), str(security.sectype), str(security.name)))
             sec_full_name = security.board + ':' + security.seccode
             match_sec = security.seccode in config.include_securities
             gen = (sec for sec in config.subscribe_patterns if match_sec == False)
