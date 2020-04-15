@@ -39,7 +39,6 @@ class Config:
         self.trade_msg_path = atsd_config["msg_path"]
 
 subscribed_ids = {}
-milliseconds_by_ids = {}
 config = Config()
 connector_ready = False
 trade_cmd_file = None
@@ -91,9 +90,10 @@ def prepare_message_command(text, message_type):
 
 def process_trade(trade):
     exchange = "transaq"
-    trade_datetime = str(trade.time) + " " + subscribed_ids[trade.secid]
+    # trade_datetime = str(trade.time) + " " + subscribed_ids[trade.secid]
+    trade_datetime = str(trade.time) + " UTC"
     trade_time = int(to_milliseconds(trade_datetime))
-    msg_cmd = "%s,%s,%s,%s,%s,%s,%s\n" % (trade.id, trade.board, trade.seccode, trade_time, trade.quantity, trade.price, trade.buysell)
+    msg_cmd = "%s,%s,%s,%s,%s,%s,%s\n" % (trade.id, trade.board, trade.seccode, trade_datetime, trade.quantity, trade.price, trade.buysell)
     trade_msg_file.write(msg_cmd)
     trade_msg_file.flush()
     net_cmd = "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % (trade.id, trade_time, 0, trade.board, trade.seccode, exchange, trade.buysell, trade.quantity, trade.price, "")
@@ -134,7 +134,10 @@ def to_entity_command(security):
     return command
 
 def callback(msg):
-    if isinstance(msg, SecurityPacket):
+    if isinstance(msg, TradePacket):
+        for trade in msg.items:
+            process_trade(trade)
+    elif isinstance(msg, SecurityPacket):
         log.info('security packet: %s' % (len(msg.items)))
         for security in msg.items:
             sec_full_name = security.board + ':' + security.seccode
@@ -146,13 +149,9 @@ def callback(msg):
             # log.info('security seccode: %s board: %s market: %s mat: %s' % (security.seccode, security.board, security.market, match_sec) )
             if match_sec:
                 subscribed_ids[security.secid] = security.timezone
-                milliseconds_by_ids[security.secid] = (0, 0)
                 ecmd = to_entity_command(security)
                 send_command(ecmd)
-                log.info("Subscribed to seccode: %s board: %s market: %s with tz %s.\n\t%s" % (security.seccode, security.board, security.market, security.timezone, ecmd))
-    elif isinstance(msg, TradePacket):
-        for trade in msg.items:
-            process_trade(trade)
+                log.info("Add to subscription id: %s seccode: %s board: %s market: %s with tz %s.\n\t%s" % (str(security.secid), security.seccode, security.board, security.market, security.timezone, ecmd))
     elif isinstance(msg, ServerStatus):
         if msg.connected == "true":
             global connector_ready
@@ -164,7 +163,10 @@ def callback(msg):
             send_command(prepare_message_command(error, TRANSAQ_ERROR))
             time.sleep(3)
             raise TransaqException(error)
-    elif isinstance(msg, SecInfoUpdate) or isinstance(msg, SecurityPitPacket) or isinstance(msg, CandleKindPacket):
+    elif isinstance(msg, CandleKindPacket):
+        for itm in msg.items:
+            log.info('Candle id: %s name: %s period: %s' % (itm.id, itm.name, itm.period) )
+    elif isinstance(msg, SecInfoUpdate) or isinstance(msg, SecurityPitPacket):
         if 1 > 2:
             log.info('msg %s' % str(type(msg)))  
     elif isinstance(msg, ClientAccount):
@@ -172,7 +174,7 @@ def callback(msg):
     elif isinstance(msg, CreditAbility):
         log.info('CreditAbility overnight: %s intraday: %s' % (msg.overnight, msg.intraday) )
     elif isinstance(msg, NewsHeader):
-        log.info('NewsHeader title: %s' % (msg.title) )
+        log.info('NewsHeader id: %s time: %s source: %s title: %s' % (msg.id, msg.time, msg.source, msg.title) )
     elif isinstance(msg, MarketPacket):
         for itm in msg.items:
             log.info('Market id: %s name: %s' % (itm.id, itm.name) )
@@ -201,8 +203,11 @@ def listen_trades():
         log.info('connected. wait')
         time.sleep(3)
         log.info('connected. ok')
-        # use another criteria for subscribing
+
         log.info('subscribing to %s securities' % (len(subscribed_ids.keys())))
+        for id in subscribed_ids.keys():
+            log.info('subscribe to %s tz: %s' % (str(id), subscribed_ids[id]))
+
         subscribe_ids(subscribed_ids.keys())
         while True:
             time.sleep(3)

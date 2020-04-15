@@ -11,8 +11,9 @@ from eulxml.xmlmap.fields import Field, DateTimeMapper
 import sys, inspect, logging
 
 log = logging.getLogger("transaq.connector")
+timeformat = "%d.%m.%Y %H:%M:%S"
 # Формат дат/времени используемый Транзаком
-timeformat = "%d.%m.%Y %H:%M:%S.%f"
+timeformat_millis = "%d.%m.%Y %H:%M:%S.%f"
 # Список классов, ленивая инициализация при парсинге
 _my_classes = None
 
@@ -473,7 +474,7 @@ class Trade(Entity):
     # Биржевой номер сделки
     id = trade_no = IntegerField('tradeno')
     # Время сделки
-    time = DateTimeField('time', timeformat)
+    time = DateTimeField('time', timeformat_millis)
     # Цена сделки
     price = StringField('price')
     # Объём в лотах
@@ -540,7 +541,7 @@ class BaseOrder(Entity):
     # Цена
     price = FloatField('price')
     # Время регистрации заявки биржей
-    time = DateTimeField('time', timeformat)
+    time = DateTimeField('time', timeformat_millis)
     # Идентификатор клиента
     client = StringField('client')
     # Cтатус заявки
@@ -558,8 +559,8 @@ class BaseOrder(Entity):
     # Количество лотов
     quantity = IntegerField('quantity')
     # Время снятия заявки, 0 для активных
-    withdraw_time = DateTimeField('withdrawtime', timeformat)
-    withdraw_time.mapper = NullableDateTimeMapper(timeformat)
+    withdraw_time = DateTimeField('withdrawtime', timeformat_millis)
+    withdraw_time.mapper = NullableDateTimeMapper(timeformat_millis)
     # Сообщение биржи в случае отказа выставить заявку
     result = StringField('result')
 
@@ -691,7 +692,7 @@ class ClientTrade(Entity):
     # B - покупка, S - продажа
     buysell = StringField('buysell', choices=('B', 'S'))
     # Время сделки
-    time = DateTimeField('time', timeformat)
+    time = DateTimeField('time', timeformat_millis)
     # Примечание
     broker_ref = StringField('brokerref')
     # Объем сделки
@@ -1016,7 +1017,7 @@ class HistoryTick(Trade):
     """
     ROOT_NAME = 'tick'
     secid = IntegerField('secid')
-    time = DateTimeField('trade_time', timeformat)
+    time = DateTimeField('trade_time', timeformat_millis)
 
 
 class HistoryTickPacket(Packet):
