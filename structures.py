@@ -10,7 +10,8 @@ from eulxml.xmlmap import *
 from eulxml.xmlmap.fields import Field, DateTimeMapper
 import sys, inspect, logging
 
-log = logging.getLogger("transaq.connector")
+log = logging.getLogger("structures")
+
 timeformat = "%d.%m.%Y %H:%M:%S"
 # Формат дат/времени используемый Транзаком
 timeformat_millis = "%d.%m.%Y %H:%M:%S.%f"

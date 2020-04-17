@@ -17,7 +17,8 @@ try:
     from structures import *
 except ImportError:
     from .structures import *
-log = logging.getLogger("transaq.connector")
+
+log = logging.getLogger("commands")
 
 callback_func = ctypes.WINFUNCTYPE(ctypes.c_bool, ctypes.c_char_p)
 global_handler = None
@@ -60,11 +61,9 @@ def callback(msg):
         if obj.connected == 'error':
             log.warn(u"Connection error: %s" % obj.text)
         log.debug(obj)
-        # REM
-        print(obj)
-    else:
+    #else:
         # log.info(u"Received message of type %s" % str(type(obj)))
-        log.debug(obj)
+        # log.debug(obj)
     if global_handler:
         global_handler(obj)
     return True
