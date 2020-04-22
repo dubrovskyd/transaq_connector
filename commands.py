@@ -459,6 +459,9 @@ def get_sec_info(market, seccode):
     root.append(sec)
     return __send_command(et.tostring(root, encoding="utf-8"))
 
+def get_news_text(id):
+    root = et.Element("command", {"id": "get_news_body", "news_id": str(id)})
+    return __send_command(et.tostring(root, encoding="utf-8"))
 
 def move_order(id, price, quantity=0, moveflag=0):
     """

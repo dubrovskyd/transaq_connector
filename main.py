@@ -2,7 +2,7 @@ from commands import *
 from structures import *
 from configparser import ConfigParser
 from atsd_client._time_utilities import to_milliseconds
-import os, time, socket, logging, datetime, csv, re
+import os, time, socket, logging, logging.config, datetime, csv, re
 import fnmatch
 
 class Config:
@@ -48,7 +48,7 @@ if not os.path.exists(config.log_path):
     os.mkdir(config.log_path)
 
 formatter = logging.Formatter(fmt='%(asctime)s %(name)s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-file_handler = logging.FileHandler(config.log_path + '/main.log', mode='w', encoding="UTF-8")
+file_handler = logging.handlers.TimedRotatingFileHandler(config.log_path + '/main.log', encoding="UTF-8", when = 'd')
 file_handler.setFormatter(formatter)
 file_handler.setLevel(logging.DEBUG)
 
@@ -63,27 +63,12 @@ log.setLevel(logging.DEBUG)
 log.addHandler(file_handler)
 log.addHandler(stdout_handler)
 
-trade_cmd_header = 'trade_num,board,sec_code,datetime,quantity,price,side'
-trade_cmd__dir = os.path.dirname(config.trade_cmd_path)
-if not os.path.exists(trade_cmd__dir):
-    os.mkdir(trade_cmd__dir)
-if not os.path.exists(config.trade_cmd_path):
-    trade_cmd_file = open(config.trade_cmd_path, "w+")
-else:
-    trade_cmd_file = open(config.trade_cmd_path, "a")
-if os.path.getsize(config.trade_cmd_path) == 0:
-    trade_cmd_file.write(trade_cmd_header)
-
-trade_msg_header = 'trade_num,time,microsecond,class,code,exchange,side,quantity,price,order'
-trade_msg__dir = os.path.dirname(config.trade_msg_path)
-if not os.path.exists(trade_msg__dir):
-    os.mkdir(trade_msg__dir)
-if not os.path.exists(config.trade_msg_path):
-    trade_msg_file = open(config.trade_msg_path, "w+")
-else:
-    trade_msg_file = open(config.trade_msg_path, "a")
-if os.path.getsize(config.trade_msg_path) == 0:
-    trade_msg_file.write(trade_msg_header)
+trade_msg_handler = logging.handlers.TimedRotatingFileHandler(config.trade_msg_path, encoding="UTF-8", when = 'd')
+trade_msg_handler.setFormatter(logging.Formatter(fmt='%(message)s'))
+trade_msg_log = logging.getLogger("trade_msg")
+trade_msg_log.propagate = False
+trade_msg_log.addHandler(trade_msg_handler)
+#trade_msg_log.info('trade_num,time,microsecond,class,code,exchange,side,quantity,price,order')
 
 log.info('logging to main: %s msg: %s cmd: %s' % (config.log_path + '/main.log', config.trade_msg_path, config.trade_cmd_path))
 
@@ -98,18 +83,15 @@ def to_news_command(news):
     return "message e:transaq t:type=transaq-news t:source=\"%s\" t:news_id=\"%s\" t:news_time=\"%s\" t:publisher=\"%s\" m:\"%s\"" % (config.t_login, news.id, news.time, news.source, news.title.strip().replace("\"", "'"))
 
 def process_trade(trade):
-    exchange = "transaq"
     # trade_datetime = str(trade.time) + " " + subscribed_ids[trade.secid]
     trade_datetime = str(trade.time) + " UTC"
-    trade_time = int(to_milliseconds(trade_datetime))
-    msg_cmd = "%s,%s,%s,%s,%s,%s,%s\n" % (trade.id, trade.board, trade.seccode, trade_datetime, trade.quantity, trade.price, trade.buysell)
-    trade_msg_file.write(msg_cmd)
-    trade_msg_file.flush()
-    net_cmd = "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % (trade.id, trade_time, 0, trade.board, trade.seccode, exchange, trade.buysell, trade.quantity, trade.price, "")
+    trade_millis = int(to_milliseconds(trade_datetime))
+    msg_cmd = "%s,%s,%s,%s,%s,%s,%s,%s,%s" % (trade.id, trade.board, trade.seccode, str(trade.time), subscribed_ids[trade.secid], trade_millis, trade.quantity, trade.price, trade.buysell)
+    trade_msg_log.info(msg_cmd)
+    exchange = "transaq"
+    net_cmd = "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % (trade.id, trade_millis, 0, trade.board, trade.seccode, exchange, trade.buysell, trade.quantity, trade.price, "")
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_socket.sendto(bytes(net_cmd, encoding='utf-8'), (config.atsd_host, config.trades_port))
-    trade_cmd_file.write(net_cmd + '\n')
-    trade_cmd_file.flush()
 
 def send_command(command):
     log.info(command)
@@ -123,19 +105,19 @@ def to_entity_command(security):
     class_code = security.board.upper()
     label = class_code + ':' + security.seccode
     # tags
-    code = security.seccode.upper()
+    sym = security.seccode.upper()
     short_name = security.name
     name = security.name
     lot_size = security.lotsize
     min_price_step = ('%0.10f' % security.minstep).rstrip('0').rstrip('.')
     scale = security.decimals
-    command = "entity e:%s l:\"%s\" t:code=%s t:short_name=\"%s\" t:name=\"%s\" t:class_code=%s t:lot_size=%s t:min_price_step=%s t:scale=%s" \
-              " t:market=%s t:timezone=\"%s\"" % (entity_name, label, code, short_name, name, class_code, lot_size, min_price_step, scale,
-                                                 security.market, security.timezone)
+    command = "entity e:%s l:\"%s\" t:symbol=%s t:short_name=\"%s\" t:name=\"%s\" t:class_code=%s t:lot_size=%s t:min_price_step=%s t:scale=%s" \
+              " t:market=%s t:sec_type:%s t:timezone=\"%s\"" % (entity_name, label, sym, short_name, name, class_code, lot_size, min_price_step, scale,
+                                                 security.market, security.sectype, security.timezone)
     if security.currency is not None:
-        command += ' t:face_unit=%s t:trade_currency=%s' % (security.currency, security.currency)
+        command += ' t:currency=%s t:trade_currency=%s' % (security.currency, security.currency)
     elif security.market == 14:
-        command += ' t:face_unit=USD t:trade_currency=USD'
+        command += ' t:currency=USD t:trade_currency=USD'
 
     if security.ticker is not None:
         command += ' t:ticker=%s' % (security.ticker)      
@@ -160,7 +142,9 @@ def callback(msg):
                 subscribed_ids[security.secid] = security.timezone
                 ecmd = to_entity_command(security)
                 send_command(ecmd)
-                log.info("Add to subscription id: %s seccode: %s board: %s market: %s with tz %s.\n\t%s" % (str(security.secid), security.seccode, security.board, security.market, security.timezone, ecmd))
+                log.info("Enable subscription id: %s seccode: %s board: %s market: %s with tz %s.\n\t%s" % (str(security.secid), security.seccode, security.board, security.market, security.timezone, ecmd))
+            elif security.market != 1 and security.market != 4 and security.market != 7 and security.market != 15 and security.market != 8:
+                log.debug('no-sub: id: %s market: %s board: %s seccode: %s sectype: %s name: %s currency: %s' % (str(security.secid), security.market, security.board, security.seccode, security.sectype, security.name, str(security.currency)))    
     elif isinstance(msg, ServerStatus):
         if msg.connected == "true":
             global connector_ready
@@ -184,7 +168,11 @@ def callback(msg):
         log.info('CreditAbility overnight: %s intraday: %s' % (msg.overnight, msg.intraday) )
     elif isinstance(msg, NewsHeader):
         log.info('NewsHeader id: %s time: %s source: %s title: %s' % (msg.id, msg.time, msg.source, msg.title) )
-        send_command( to_news_command(msg))
+        send_command(to_news_command(msg))
+        # get news text
+        get_news_text(msg.id)
+    elif isinstance(msg, NewsBody):
+        log.debug('NewsBody id: %s text: \n%s' % (msg.id, msg.text) )     
     elif isinstance(msg, MarketPacket):
         for itm in msg.items:
             log.info('Market id: %s name: %s' % (itm.id, itm.name) )
@@ -220,10 +208,14 @@ def listen_trades():
 
         if connector_ready:
             log.info('subscribing to %s securities' % (len(subscribed_ids.keys())))
+            utc_count = 0
             for id in subscribed_ids.keys():
                 log.debug('subscribe to %s tz: %s' % (str(id), subscribed_ids[id]))
+                if subscribed_ids[id] == 'UTC':
+                    utc_count = utc_count + 1
+
             subscribe_ids(subscribed_ids.keys())
-            send_command(to_message_command('INFO', 'subscription', 'subscribed to %s securities' % (len(subscribed_ids.keys()))))
+            send_command(to_message_command('INFO', 'subscription', 'subscribed to %s securities. UTC: %s' % (len(subscribed_ids.keys()), utc_count)))
         else:
             log.error('skip subscribing to %s securities' % (len(subscribed_ids.keys())))
         
@@ -247,6 +239,7 @@ def listen_trades():
         for id in subscribed_ids.keys():
             log.debug('unsubscribe from %s tz: %s' % (str(id), subscribed_ids[id]))
         unsubscribe_ids(subscribed_ids)
+        subscribed_ids.clear()
         log.warning('disconnect')
         disconnect()
         uninitialize()
