@@ -112,7 +112,7 @@ def to_entity_command(security):
     min_price_step = ('%0.10f' % security.minstep).rstrip('0').rstrip('.')
     scale = security.decimals
     command = "entity e:%s l:\"%s\" t:symbol=%s t:short_name=\"%s\" t:name=\"%s\" t:class_code=%s t:lot_size=%s t:min_price_step=%s t:scale=%s" \
-              " t:market=%s t:sec_type:%s t:timezone=\"%s\"" % (entity_name, label, sym, short_name, name, class_code, lot_size, min_price_step, scale,
+              " t:market=%s t:sec_type=%s t:timezone=\"%s\"" % (entity_name, label, sym, short_name, name, class_code, lot_size, min_price_step, scale,
                                                  security.market, security.sectype, security.timezone)
     if security.currency is not None:
         command += ' t:currency=%s t:trade_currency=%s' % (security.currency, security.currency)
