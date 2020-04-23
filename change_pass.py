@@ -21,7 +21,7 @@ def handle_txml_message(msg):
     else:
         print('msg received of type %s' % str(type(msg)))
 
-# python change_pass.py default 0 FZTC00000A 12345678 87654321
+# python -u change_pass.py default 0 FZTC00000A 12345678 87654321
 if __name__ == '__main__':
     try:
         initialize("Logs", 2, handle_txml_message)

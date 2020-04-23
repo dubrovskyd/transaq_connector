@@ -101,7 +101,7 @@ def send_command(command):
 def to_entity_command(security):
     if not isinstance(security, Security):
         raise TypeError("Expected Security type, found " + str(type(security)))
-    entity_name = "%s_[%s]" % (security.seccode, security.board)
+    entity_name = ("%s_[%s]" % (security.seccode, security.board)).lower()
     class_code = security.board.upper()
     label = class_code + ':' + security.seccode
     # tags
@@ -142,7 +142,7 @@ def callback(msg):
                 subscribed_ids[security.secid] = security.timezone
                 ecmd = to_entity_command(security)
                 send_command(ecmd)
-                log.info("Enable subscription id: %s seccode: %s board: %s market: %s with tz %s.\n\t%s" % (str(security.secid), security.seccode, security.board, security.market, security.timezone, ecmd))
+                log.info("Enable subscription id: %s seccode: %s board: %s market: %s\n\t%s" % (str(security.secid), security.seccode, security.board, security.market, ecmd))
             elif security.market != 1 and security.market != 4 and security.market != 7 and security.market != 15 and security.market != 8:
                 log.debug('no-sub: id: %s market: %s board: %s seccode: %s sectype: %s name: %s currency: %s' % (str(security.secid), security.market, security.board, security.seccode, security.sectype, security.name, str(security.currency)))    
     elif isinstance(msg, ServerStatus):
@@ -159,11 +159,13 @@ def callback(msg):
     elif isinstance(msg, CandleKindPacket):
         for itm in msg.items:
             log.info('Candle id: %s name: %s period: %s' % (itm.id, itm.name, itm.period) )
-    elif isinstance(msg, SecInfoUpdate) or isinstance(msg, SecurityPitPacket):
-        if 1 > 2:
-            log.info('msg %s' % str(type(msg)))  
+    elif isinstance(msg, SecInfoUpdate):
+        log.debug('SecInfoUpdate secid: %s seccode: %s market: %s minprice: %s maxprice: %s' % (msg.secid, msg.seccode, msg.market, msg.minprice, msg.maxprice)) 
+    elif isinstance(msg, SecurityPitPacket):
+        for itm in msg.items:
+            log.debug('SecurityPitPacket board: %s seccode: %s market: %s lotsize: %s minstep: %s' % (itm.board, itm.seccode, itm.market, itm.lotsize, itm.minstep)) 
     elif isinstance(msg, ClientAccount):
-        log.info('ClientAccount active: %s type: %s currency: %s market: %s' % (msg.active, msg.type, msg.currency, msg.market) )
+        log.info('ClientAccount id: %s active: %s type: %s currency: %s market: %s union: %s' % (msg.id, msg.active, msg.type, msg.currency, msg.market, msg.union) )
     elif isinstance(msg, CreditAbility):
         log.info('CreditAbility overnight: %s intraday: %s' % (msg.overnight, msg.intraday) )
     elif isinstance(msg, NewsHeader):
