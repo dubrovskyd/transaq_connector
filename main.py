@@ -86,10 +86,11 @@ def process_trade(trade):
     # trade_datetime = str(trade.time) + " " + subscribed_ids[trade.secid]
     trade_datetime = str(trade.time) + " UTC"
     trade_millis = int(to_milliseconds(trade_datetime))
-    msg_cmd = "%s,%s,%s,%s,%s,%s,%s,%s,%s" % (trade.id, trade.board, trade.seccode, str(trade.time), subscribed_ids[trade.secid], trade_millis, trade.quantity, trade.price, trade.buysell)
+    scode = trade.seccode.replace(" ", ".")
+    msg_cmd = "%s,%s,%s,%s,%s,%s,%s,%s" % (trade.id, trade.board, scode, str(trade.time), trade_millis, trade.quantity, trade.price, trade.buysell)
     trade_msg_log.info(msg_cmd)
     exchange = "transaq"
-    net_cmd = "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % (trade.id, trade_millis, 0, trade.board, trade.seccode, exchange, trade.buysell, trade.quantity, trade.price, "")
+    net_cmd = "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % (trade.id, trade_millis, 0, trade.board, scode, exchange, trade.buysell, trade.quantity, trade.price, "")
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_socket.sendto(bytes(net_cmd, encoding='utf-8'), (config.atsd_host, config.trades_port))
 
@@ -101,28 +102,37 @@ def send_command(command):
 def to_entity_command(security):
     if not isinstance(security, Security):
         raise TypeError("Expected Security type, found " + str(type(security)))
-    entity_name = ("%s_[%s]" % (security.seccode, security.board)).lower()
+    scode = security.seccode.replace(" ", ".")
+    entity_name = ("%s_[%s]" % (scode, security.board)).lower()
     class_code = security.board.upper()
     label = class_code + ':' + security.seccode
     # tags
-    sym = security.seccode.upper()
+    sym = scode.upper()
     short_name = security.name
     name = security.name
     lot_size = security.lotsize
     min_price_step = ('%0.10f' % security.minstep).rstrip('0').rstrip('.')
     scale = security.decimals
-    command = "entity e:%s l:\"%s\" t:symbol=%s t:short_name=\"%s\" t:name=\"%s\" t:class_code=%s t:lot_size=%s t:min_price_step=%s t:scale=%s" \
-              " t:market=%s t:sec_type=%s t:timezone=\"%s\"" % (entity_name, label, sym, short_name, name, class_code, lot_size, min_price_step, scale,
+    curr = security.currency.replace("RUR", "RUB")
+    command = "entity e:%s l:\"%s\" t:symbol=%s t:short_name=\"%s\" t:name=\"%s\" t:class_code=\"%s\" t:lot_size=%s t:min_price_step=%s t:scale=%s" \
+              " t:market=\"%s\" t:sec_type=\"%s\" t:timezone=\"%s\"" % (entity_name, label, sym, short_name, name, class_code, lot_size, min_price_step, scale,
                                                  security.market, security.sectype, security.timezone)
     if security.currency is not None:
-        command += ' t:currency=%s t:trade_currency=%s' % (security.currency, security.currency)
+        command += ' t:currency=\"%s\" t:trade_currency=\"%s\"' % (curr, curr)
     elif security.market == 14:
         command += ' t:currency=USD t:trade_currency=USD'
 
     if security.ticker is not None:
-        command += ' t:ticker=%s' % (security.ticker)      
+        command += ' t:ticker=\"%s\"' % (security.ticker)      
 
     return command
+
+def is_currency_futures(security):
+    cpairs = ["MXNUSD", "AUDUSD", "CADUSD", "CHFUSD", "EURUSD", "GBPUSD", "JPYUSD"]
+    for cp in cpairs:
+        if cp in security.name:
+            return True
+    return False
 
 def callback(msg):
     if isinstance(msg, TradePacket):
@@ -131,10 +141,11 @@ def callback(msg):
     elif isinstance(msg, SecurityPacket):
         log.info('security packet: %s' % (len(msg.items)))
         for security in msg.items:
-            sec_full_name = security.board + ':' + security.seccode
-            match_sec = security.seccode in config.include_securities
+            # .replace(" ", "_")
+            sec_full_name = security.board + ':' + security.seccode.replace(" ", ".")
+            match_sec = sec_full_name in config.include_securities
             gen = (sec for sec in config.subscribe_patterns if match_sec == False)
-            if match_sec == False and security.secid not in subscribed_ids.keys() and security.seccode not in config.exclude_securities:
+            if match_sec == False and security.secid not in subscribed_ids.keys() and sec_full_name not in config.exclude_securities and not is_currency_futures(security):
                 for sc in gen:
                     match_sec = match_sec or fnmatch.fnmatch(sec_full_name, sc)
             # log.info('security seccode: %s board: %s market: %s mat: %s' % (security.seccode, security.board, security.market, match_sec) )
@@ -144,7 +155,7 @@ def callback(msg):
                 send_command(ecmd)
                 log.info("Enable subscription id: %s seccode: %s board: %s market: %s\n\t%s" % (str(security.secid), security.seccode, security.board, security.market, ecmd))
             elif security.market != 1 and security.market != 4 and security.market != 7 and security.market != 15 and security.market != 8:
-                log.debug('no-sub: id: %s market: %s board: %s seccode: %s sectype: %s name: %s currency: %s' % (str(security.secid), security.market, security.board, security.seccode, security.sectype, security.name, str(security.currency)))    
+                log.debug('no-sub: id: %s market: %s board: %s seccode: %s sectype: %s name: %s currency: %s fname: %s' % (str(security.secid), security.market, security.board, security.seccode, security.sectype, security.name, str(security.currency), sec_full_name))    
     elif isinstance(msg, ServerStatus):
         if msg.connected == "true":
             global connector_ready
@@ -160,10 +171,10 @@ def callback(msg):
         for itm in msg.items:
             log.info('Candle id: %s name: %s period: %s' % (itm.id, itm.name, itm.period) )
     elif isinstance(msg, SecInfoUpdate):
-        log.debug('SecInfoUpdate secid: %s seccode: %s market: %s minprice: %s maxprice: %s' % (msg.secid, msg.seccode, msg.market, msg.minprice, msg.maxprice)) 
+        if False: log.debug('SecInfoUpdate secid: %s seccode: %s market: %s minprice: %s maxprice: %s' % (msg.secid, msg.seccode, msg.market, msg.minprice, msg.maxprice)) 
     elif isinstance(msg, SecurityPitPacket):
         for itm in msg.items:
-            log.debug('SecurityPitPacket board: %s seccode: %s market: %s lotsize: %s minstep: %s' % (itm.board, itm.seccode, itm.market, itm.lotsize, itm.minstep)) 
+            if False: log.debug('SecurityPitPacket board: %s seccode: %s market: %s lotsize: %s minstep: %s' % (itm.board, itm.seccode, itm.market, itm.lotsize, itm.minstep)) 
     elif isinstance(msg, ClientAccount):
         log.info('ClientAccount id: %s active: %s type: %s currency: %s market: %s union: %s' % (msg.id, msg.active, msg.type, msg.currency, msg.market, msg.union) )
     elif isinstance(msg, CreditAbility):
