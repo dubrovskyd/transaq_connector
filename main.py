@@ -48,7 +48,7 @@ if not os.path.exists(config.log_path):
     os.mkdir(config.log_path)
 
 formatter = logging.Formatter(fmt='%(asctime)s %(name)s %(levelname)-8s %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-file_handler = logging.handlers.TimedRotatingFileHandler(config.log_path + '/main.log', encoding="UTF-8", when = 'd')
+file_handler = logging.handlers.TimedRotatingFileHandler(config.log_path + '/main.log', encoding="UTF-8", when = 'midnight')
 file_handler.setFormatter(formatter)
 file_handler.setLevel(logging.DEBUG)
 
@@ -63,7 +63,7 @@ log.setLevel(logging.DEBUG)
 log.addHandler(file_handler)
 log.addHandler(stdout_handler)
 
-trade_msg_handler = logging.handlers.TimedRotatingFileHandler(config.trade_msg_path, encoding="UTF-8", when = 'd')
+trade_msg_handler = logging.handlers.TimedRotatingFileHandler(config.trade_msg_path, encoding="UTF-8", when = 'midnight')
 trade_msg_handler.setFormatter(logging.Formatter(fmt='%(message)s'))
 trade_msg_log = logging.getLogger("trade_msg")
 trade_msg_log.propagate = False
@@ -87,10 +87,11 @@ def process_trade(trade):
     trade_datetime = str(trade.time) + " UTC"
     trade_millis = int(to_milliseconds(trade_datetime))
     scode = trade.seccode.replace(" ", ".")
-    msg_cmd = "%s,%s,%s,%s,%s,%s,%s,%s" % (trade.id, trade.board, scode, str(trade.time), trade_millis, trade.quantity, trade.price, trade.buysell)
-    trade_msg_log.info(msg_cmd)
+    #msg_cmd = "%.0f,%s,%s,%s,%s,%s,%s,%s" % (trade.id, trade.board, scode, str(trade.time), trade_millis, trade.quantity, trade.price, trade.buysell)
+    #trade_msg_log.info(msg_cmd)
     exchange = "transaq"
-    net_cmd = "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s" % (trade.id, trade_millis, 0, trade.board, scode, exchange, trade.buysell, trade.quantity, trade.price, "")
+    net_cmd = "%.0f,%s,%s,%s,%s,%s,%s,%s,%s,%s" % (trade.id, trade_millis, 0, trade.board, scode, exchange, trade.buysell, trade.quantity, trade.price, "")
+    trade_msg_log.info(net_cmd)
     udp_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     udp_socket.sendto(bytes(net_cmd, encoding='utf-8'), (config.atsd_host, config.trades_port))
 
@@ -114,7 +115,7 @@ def to_entity_command(security):
     min_price_step = ('%0.10f' % security.minstep).rstrip('0').rstrip('.')
     scale = security.decimals
     curr = security.currency.replace("RUR", "RUB")
-    command = "entity e:%s l:\"%s\" t:symbol=%s t:short_name=\"%s\" t:name=\"%s\" t:class_code=\"%s\" t:lot_size=%s t:min_price_step=%s t:scale=%s" \
+    command = "entity e:%s l:\"%s\" t:symbol=%s t:short_name=\"%s\" t:name=\"%s\" t:class_code=\"%s\" t:lot=%s t:step=%s t:scale=%s" \
               " t:market=\"%s\" t:sec_type=\"%s\" t:timezone=\"%s\"" % (entity_name, label, sym, short_name, name, class_code, lot_size, min_price_step, scale,
                                                  security.market, security.sectype, security.timezone)
     if security.currency is not None:
